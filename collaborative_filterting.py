@@ -8,8 +8,26 @@ from typing import List
 from dataclasses import dataclass
 from scipy.stats import pearsonr 
 
+def recommander(input_file: str, total_users:int, total_items:int, total_neighours:int, output_file:str):
+    dataset = _load_dataset(input_file)
+    rating_matrix = _create_matrix(total_users, total_items, dataset)
 
-def recommend_rating(rating_matrix:np.ndarray, total_users:int, total_neighours:int, user_id:int, item_id:int):
+    #creating empty matrix for final rating output
+    final_matrix = np.zeros((total_users, total_items))
+
+    for i in range(1, total_users + 1):
+        for j in range(1, total_items + 1):
+            if rating_matrix[i-1, j-1] == 0:
+                predictated_rating = _recommend_rating(rating_matrix, total_users, total_neighours, i, j)
+                #print(f"User:{i} Item:{j} Rating:{predictated_rating}")
+                final_matrix[i -1, j-1] = predictated_rating
+            else:
+                original_rating = rating_matrix[i-1, j-1]
+                final_matrix[i -1, j-1] = original_rating
+        #print("\n")
+    _dump_matrix(output_file, final_matrix, total_users, total_items)
+
+def _recommend_rating(rating_matrix:np.ndarray, total_users:int, total_neighours:int, user_id:int, item_id:int):
     neigbours_ids_for_user = _calculate_user_neighbours(rating_matrix, total_users, total_neighours, user_id)
     
     # Filter neighbours only which has rated before.
@@ -52,7 +70,7 @@ def _calculate_user_neighbours(rating_matrix:np.ndarray, total_users:int, total_
     # pick top n neighbours 
     neighours = all_other_user_by_similarity_order[: total_neighours]
 
-    print(user_id, [ (n, user_to_coeff_dict.get(n)) for n in neighours])
+    #print(user_id, [ (n, user_to_coeff_dict.get(n)) for n in neighours])
     
     return neighours
 
@@ -96,15 +114,17 @@ def _load_dataset(fs_path: str) -> List[Data]:
             output.append(Data(user=values[0] - 1, item=values[1] - 1, rating=values[2]))
     return output
 
+def _dump_matrix(fs_path:str, matrix: np.ndarray, total_users:int, total_items:int):
+    with open(fs_path, "w") as f:
+        for i in range(1, total_users + 1):
+            for j in range(1, total_items + 1):
+                f.write(f"{i} {j} {int(matrix[i-1][j-1])}\n")
+
 if __name__ == "__main__":
     total_users = 4
     total_items = 7
     total_neighours = 2
-    dataset = _load_dataset("/Users/nmurarka/Desktop/recommender_system/sample_test.txt")
-    rating_matrix = _create_matrix(total_users, total_items, dataset)
+    input_file = "sample_test.txt"
+    output_file = "sample_test_predicted.txt"
 
-    for i in range(1, total_users + 1):
-        for j in range(1, total_items + 1):
-            if rating_matrix[i-1, j-1] == 0:
-                print(f"User:{i} Item:{j} Rating:{recommend_rating(rating_matrix, total_users, total_neighours, i, j)}")
-        print("\n")
+    recommander(input_file, total_users, total_items, total_neighours, output_file)
